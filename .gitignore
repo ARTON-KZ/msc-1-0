@@ -1,6 +1,8 @@
 /*
-!/index.html
+!/*.html
 !/assets/
 /assets/*
 !/assets/nyc-logo.webp
+!/assets/site.css
+!/assets/site.js
 !/.gitignore
