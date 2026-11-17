@@ -166,11 +166,54 @@ document.addEventListener('click', e => { const t = e.target.closest('[data-h]')
   gsap.to(w2, { xPercent: 10, ease: 'none', scrollTrigger: { ...st } });
 })();
 
-/* ---------------- HOME: field wall ---------------- */
-(function wall() {
-  const el = $('#wall'); if (!el) return;
-  const star = '<svg class="sep" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.5l7.1-.6z"/></svg>';
-  el.innerHTML = SKILLS.map(([n]) => `<a href="${registerUrl(n)}" data-h="select">${n}</a>`).join('&nbsp;' + star + ' ');
+/* ---------------- HOME: field dial ----------------
+   A picker wheel: the centred field is full size and selected; the rest tilt
+   away like a drum. Snaps with a haptic tick per field. */
+(function dial() {
+  const track = $('#dial'); if (!track) return;
+  const info = $('#dial-info'), tag = $('.tag', info), body = $('.dial-swap p:last-child', info), go = $('.btn', info), swap = $('.dial-swap', info);
+  track.innerHTML = SKILLS.map(([n], i) => `<li class="dial-item" id="dial-${i}" role="option" aria-selected="false">${n}</li>`).join('');
+  const items = $$('.dial-item', track);
+  let cur = -1, raf = 0, swapT = 0, touched = false;
+  function show(i) {
+    const [n, t, b] = SKILLS[i];
+    go.href = registerUrl(n); go.firstChild.textContent = "Register for this field ";
+    if (reduce) { tag.textContent = t; body.textContent = b; return; }
+    swap.classList.add('out'); clearTimeout(swapT);
+    swapT = setTimeout(() => { tag.textContent = t; body.textContent = b; swap.classList.remove('out'); }, 180);
+  }
+  function paint() {
+    raf = 0;
+    const mid = track.scrollTop + track.clientHeight / 2;
+    let best = 0, bestD = 1e9;
+    items.forEach((el, i) => {
+      const d = (el.offsetTop + el.offsetHeight / 2 - mid) / el.offsetHeight; // distance in rows
+      const a = Math.min(Math.abs(d), 3.2);
+      if (Math.abs(d) < bestD) { bestD = Math.abs(d); best = i; }
+      el.style.transform = reduce ? '' : `rotateX(${(-d * 16).toFixed(2)}deg) scale(${(1 - a * .13).toFixed(3)})`;
+      el.style.opacity = (1 - a * .27).toFixed(3);
+    });
+    if (best !== cur) {
+      if (cur >= 0) { items[cur].classList.remove('on'); items[cur].setAttribute('aria-selected', 'false'); if (touched) haptic('tap'); }
+      cur = best; items[cur].classList.add('on'); items[cur].setAttribute('aria-selected', 'true');
+      track.setAttribute('aria-activedescendant', items[cur].id); show(cur);
+    }
+  }
+  const req = () => { if (!raf) raf = requestAnimationFrame(paint); };
+  const to = i => { i = Math.max(0, Math.min(items.length - 1, i));
+    track.scrollTo({ top: items[i].offsetTop + items[i].offsetHeight / 2 - track.clientHeight / 2, behavior: reduce ? 'auto' : 'smooth' }); };
+  track.addEventListener('scroll', req, { passive: true });
+  ['pointerdown', 'touchstart', 'wheel', 'keydown'].forEach(ev => track.addEventListener(ev, () => { touched = true; }, { passive: true }));
+  track.addEventListener('click', e => { const it = e.target.closest('.dial-item'); if (it) to(items.indexOf(it)); });
+  track.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); to(cur + 1); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); to(cur - 1); }
+    if (e.key === 'Enter') location.href = registerUrl(SKILLS[cur][0]);
+  });
+  addEventListener('resize', req);
+  // open on Fashion, the field Kenneth used as his example
+  requestAnimationFrame(() => { const i = SKILLS.findIndex(s => s[0].startsWith('Fashion'));
+    track.scrollTop = items[i].offsetTop + items[i].offsetHeight / 2 - track.clientHeight / 2; paint(); });
 })();
 
 /* ---------------- FIELDS list ---------------- */
